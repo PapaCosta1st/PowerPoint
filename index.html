@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<title>Колесо викторини</title>
+<style>
+  body {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    height: 100vh; 
+    margin: 0; 
+    background: transparent;
+    font-family: sans-serif;
+  }
+  canvas {
+    width: 540px;
+    height: 540px;
+    background: transparent;
+    border-radius: 50%;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    display: block;
+  }
+  button {
+    margin-top: 20px;
+    padding: 10px 25px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #resultText {
+    margin-top: 15px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #20658F;
+    min-height: 24px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="wheel" width="1080" height="1080"></canvas>
+<button id="spinBtn">Крутити колесо</button>
+<div id="resultText"></div>
+
+<audio id="spinSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+
+<script>
+(() => {
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+
+  const W = 540;
+  const H = 540;
+  const centerX = W / 2;
+  const centerY = H / 2;
+  const radius = W / 2 * 0.9;
+
+  const segments = [
+    "Шпагат",
+    "Звабити фотографа",
+    "Поцілунок",
+    "Хоровод",
+    "Брейк-данс",
+    "Обійми",
+    "Селфі з ведучим",
+    "Випити",
+    "Гопак"
+  ];
+
+  const colors = ["#559FC4", "#20658F", "#A7B2B4"];
+  const anglePerSector = 2 * Math.PI / segments.length;
+
+  const spinSound = document.getElementById('spinSound');
+  const resultText = document.getElementById('resultText');
+
+  const winningSequence = [
+    "Поцілунок",
+    "Обійми",
+    "Шпагат",
+    "Брейк-данс",
+    "Селфі з ведучим",
+    "Гопак",
+    "Випити",
+    "Звабити фотографа",
+    "Хоровод"
+  ];
+
+  let spinCount = 0;
+  let rotation = 0;
+  let animId = null;
+  let startTime = null;
+
+  function drawArrow() {
+    const arrowSize = 50;
+  const offset = 0;
+
+  const arrowX = centerX;
+  const arrowY = centerY - radius - offset;
+
+  ctx.fillStyle = 'black';
+  ctx.beginPath();
+  ctx.moveTo(arrowX, arrowY);
+  ctx.lineTo(arrowX - arrowSize / 2, arrowY - arrowSize);
+  ctx.lineTo(arrowX + arrowSize / 2, arrowY - arrowSize);
+  ctx.closePath();
+  ctx.fill();
+  }
+
+  function drawWheel(rot) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rot);
+
+    for(let i = 0; i < segments.length; i++) {
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius - 1, i * anglePerSector, (i + 1) * anglePerSector);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.save();
+      const textAngle = i * anglePerSector + anglePerSector / 2;
+      ctx.rotate(textAngle);
+
+      let deg = textAngle * 180 / Math.PI;
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textBaseline = 'middle';
+
+      if(deg > 90 && deg < 270){
+        ctx.rotate(Math.PI);
+        ctx.textAlign = 'center';
+        ctx.fillText(segments[i], -radius * 0.6, 0);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.fillText(segments[i], radius * 0.6, 0);
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    drawArrow();
+  }
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function animate(timestamp, targetIndex, targetLabel) {
+    if (!startTime) {
+      startTime = timestamp;
+      spinSound.currentTime = 0;
+      spinSound.play();
+      resultText.textContent = '';
+    }
+    const elapsed = timestamp - startTime;
+
+    if(elapsed < 5000) {
+      let t = Math.min(elapsed / 5000, 1);
+      let easedT = easeOut(t);
+      let targetAngle = (targetIndex + 0.5) * anglePerSector;
+      let finalRotation = 3 * Math.PI / 2 - targetAngle;
+      rotation = easedT * (finalRotation + 2 * Math.PI * 6);
+      drawWheel(rotation);
+      animId = requestAnimationFrame((ts) => animate(ts, targetIndex, targetLabel));
+    } else {
+      spinSound.pause();
+      spinSound.currentTime = 0;
+      drawWheel(rotation);
+      animId = null;
+      resultText.textContent = "Виграш: " + targetLabel;
+    }
+  }
+
+  document.getElementById('spinBtn').onclick = () => {
+    if(animId || spinCount >= winningSequence.length) return;
+    const targetLabel = winningSequence[spinCount];
+    const targetIndex = segments.indexOf(targetLabel);
+    startTime = null;
+    animId = requestAnimationFrame((ts) => animate(ts, targetIndex, targetLabel));
+    spinCount++;
+  };
+
+  drawWheel(rotation);
+})();
+</script>
+
+</body>
+</html>
